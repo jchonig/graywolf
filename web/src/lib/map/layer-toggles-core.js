@@ -15,6 +15,11 @@ export const LAYER_TOGGLES_DEFAULTS = {
   weather: true,
   myPosition: true,
   fixedPoints: true,
+  routes: true,
+  // Per-route visibility, keyed by server route id. A route id absent
+  // from this map is treated as visible, so newly uploaded routes show
+  // by default. Persisted alongside the other toggles.
+  routeVisibility: {},
   fronts: true,
   directRxOnly: false,
   rfOnly: false,
@@ -30,12 +35,19 @@ export const LAYER_TOGGLES_KEY = 'gw_map_layer_toggles';
 // harmlessly ignored by consumers. Missing or corrupt input yields a fresh copy
 // of the defaults. Always returns a new object (never the shared defaults).
 export function parseLayerToggles(raw) {
-  if (!raw) return { ...LAYER_TOGGLES_DEFAULTS };
+  const fresh = () => ({ ...LAYER_TOGGLES_DEFAULTS, routeVisibility: {} });
+  if (!raw) return fresh();
   try {
     const saved = JSON.parse(raw);
-    if (saved == null || typeof saved !== 'object') return { ...LAYER_TOGGLES_DEFAULTS };
-    return { ...LAYER_TOGGLES_DEFAULTS, ...saved };
+    if (saved == null || typeof saved !== 'object') return fresh();
+    const merged = { ...fresh(), ...saved };
+    // routeVisibility is a nested object; make sure it is always a plain
+    // own object (never the shared defaults reference, never a non-object
+    // from a corrupt blob) so in-place reads/writes stay isolated.
+    merged.routeVisibility =
+      saved.routeVisibility && typeof saved.routeVisibility === 'object' ? { ...saved.routeVisibility } : {};
+    return merged;
   } catch {
-    return { ...LAYER_TOGGLES_DEFAULTS };
+    return fresh();
   }
 }

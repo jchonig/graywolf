@@ -23,6 +23,10 @@
             "description": "Operator-placed map landmarks, shared across devices."
         },
         {
+            "name": "map-routes",
+            "description": "Operator-uploaded route lines (GPX/KML/GeoJSON) drawn on the live map, shared across devices."
+        },
+        {
             "name": "audio-devices",
             "description": "Audio input/output device binding."
         },
@@ -4271,6 +4275,229 @@
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/map-routes": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map-routes"
+                ],
+                "summary": "List map routes",
+                "operationId": "listMapRoutes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.MapRouteResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map-routes"
+                ],
+                "summary": "Create map route",
+                "operationId": "createMapRoute",
+                "parameters": [
+                    {
+                        "description": "Route definition",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MapRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MapRouteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/map-routes/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map-routes"
+                ],
+                "summary": "Get map route",
+                "operationId": "getMapRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Route id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MapRouteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map-routes"
+                ],
+                "summary": "Update map route",
+                "operationId": "updateMapRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Route id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Route definition",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MapRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.MapRouteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "tags": [
+                    "map-routes"
+                ],
+                "summary": "Delete map route",
+                "operationId": "deleteMapRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Route id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/webtypes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/webtypes.ErrorResponse"
                         }
@@ -10505,6 +10732,40 @@
                     }
                 },
                 "maxZoom": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.MapRouteRequest": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "geojson": {
+                    "type": "object"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MapRouteResponse": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "geojson": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "point_count": {
                     "type": "integer"
                 }
             }

@@ -58,6 +58,21 @@ test('parseLayerToggles never returns the shared defaults object', () => {
   assert.equal(LAYER_TOGGLES_DEFAULTS.trails, true);
 });
 
+test('parseLayerToggles isolates routeVisibility from the shared defaults', () => {
+  const a = parseLayerToggles(null);
+  a.routeVisibility[7] = false;
+  const b = parseLayerToggles(null);
+  assert.deepEqual(b.routeVisibility, {});
+  assert.deepEqual(LAYER_TOGGLES_DEFAULTS.routeVisibility, {});
+});
+
+test('parseLayerToggles round-trips a saved routeVisibility map', () => {
+  const raw = JSON.stringify({ routes: false, routeVisibility: { 3: false, 4: true } });
+  const got = parseLayerToggles(raw);
+  assert.equal(got.routes, false);
+  assert.deepEqual(got.routeVisibility, { 3: false, 4: true });
+});
+
 test('defaults include directRxHeatmap off with default opacity', () => {
   assert.equal(LAYER_TOGGLES_DEFAULTS.directRxHeatmap, false);
   assert.equal(LAYER_TOGGLES_DEFAULTS.directRxHeatmapOpacity, 0.8);

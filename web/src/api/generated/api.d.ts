@@ -984,6 +984,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/map-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List map routes */
+        get: operations["listMapRoutes"];
+        put?: never;
+        /** Create map route */
+        post: operations["createMapRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/map-routes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get map route */
+        get: operations["getMapRoute"];
+        /** Update map route */
+        put: operations["updateMapRoute"];
+        post?: never;
+        /** Delete map route */
+        delete: operations["deleteMapRoute"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/maps/catalog": {
         parameters: {
             query?: never;
@@ -2985,6 +3022,18 @@ export interface components {
             bbox?: number[];
             maxZoom?: number;
         };
+        "dto.MapRouteRequest": {
+            color?: string;
+            geojson?: Record<string, never>;
+            name?: string;
+        };
+        "dto.MapRouteResponse": {
+            color?: string;
+            geojson?: Record<string, never>;
+            id?: number;
+            name?: string;
+            point_count?: number;
+        };
         "dto.MapsConfigRequest": {
             source?: string;
         };
@@ -3954,6 +4003,12 @@ export interface components {
         "dto.AX25SessionProfile": {
             content: {
                 "application/json": components["schemas"]["dto.AX25SessionProfile"];
+            };
+        };
+        /** @description Route definition */
+        "dto.MapRouteRequest": {
+            content: {
+                "application/json": components["schemas"]["dto.MapRouteRequest"];
             };
         };
         /** @description Igate RF filter definition */
@@ -7676,6 +7731,194 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMapRoutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["dto.MapRouteResponse"][];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+        };
+    };
+    createMapRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["dto.MapRouteRequest"];
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["dto.MapRouteResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMapRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Route id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["dto.MapRouteResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateMapRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Route id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["dto.MapRouteRequest"];
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["dto.MapRouteResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMapRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Route id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["webtypes.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

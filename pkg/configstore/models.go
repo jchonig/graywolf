@@ -717,6 +717,22 @@ type FixedPoint struct {
 	UpdatedAt   time.Time `json:"-"`
 }
 
+// MapRoute is an operator-uploaded route line drawn on the live map --
+// e.g. an event course exported from Ride With GPS as GPX. Like a
+// FixedPoint it is stored server-side so every browser/device pointed
+// at this server sees the same routes, and it is never transmitted.
+// The client parses GPX/KML/GeoJSON into a GeoJSON FeatureCollection
+// and uploads that; GeoJSON holds the compact serialized document.
+type MapRoute struct {
+	ID         uint32    `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name       string    `gorm:"not null" json:"name"`
+	Color      string    `gorm:"not null;default:'#e11d48'" json:"color"`
+	GeoJSON    string    `gorm:"not null" json:"-"` // compact GeoJSON FeatureCollection text
+	PointCount uint32    `gorm:"not null;default:0" json:"point_count"`
+	CreatedAt  time.Time `json:"-"`
+	UpdatedAt  time.Time `json:"-"`
+}
+
 // SmartBeaconConfig is a singleton (id=1) row holding the global
 // SmartBeacon curve parameters applied to every beacon with
 // SmartBeacon=true. Mirrors direwolf's single SMARTBEACON directive:

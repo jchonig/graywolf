@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@xmldom/xmldom": "^0.9.12",
     "openapi-typescript": "7.13.0",
     "svelte": "^5.0.0",
     "swagger2openapi": "7.0.8",
@@ -23,6 +24,7 @@
     "@americana/maplibre-shield-generator": "^0.1.1",
     "@chrissnell/chonky-ui": "^0.4.2",
     "@internationalized/date": "^3.8.0",
+    "@tmcw/togeojson": "^7.1.2",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-serialize": "^0.14.0",
     "@xterm/addon-web-links": "^0.12.0",

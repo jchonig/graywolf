@@ -34,6 +34,8 @@
   import { mountFixedPointsLayer } from '../lib/map/layers/fixed-points.js';
   import { fixedPointsStore } from '../lib/map/fixed-points-store.svelte.js';
   import FixedPointDialog from '../lib/map/fixed-point-dialog.svelte';
+  import { mountMapRoutesLayer } from '../lib/map/layers/map-routes.js';
+  import { mapRoutesStore } from '../lib/map/map-routes-store.svelte.js';
   import { renderStationPopupHTML } from '../lib/map/popup.js';
   import { unitsState } from '../lib/settings/units-store.svelte.js';
   import { mapState, MY_POSITION_ZOOM } from '../lib/map/map-store.svelte.js';
@@ -108,6 +110,7 @@
   let heatmapLayer = null;
   let heatmapTimer = null;
   let fixedPointsLayer = null;
+  let mapRoutesLayer = null;
 
   // Bumping this key fully remounts <MaplibreMap>, which is how we recover
   // from a permanent WebGL context loss (graywolf#461): the map component's
@@ -606,6 +609,13 @@
     });
   }
 
+  // Flip one route's visibility. Reassign the map (not an in-place key
+  // set) so the persist effect's JSON.stringify sees the change and the
+  // layer refresh effect re-runs.
+  function setRouteVisible(id, visible) {
+    layerToggles.routeVisibility = { ...layerToggles.routeVisibility, [id]: visible };
+  }
+
   function updateCoordText(lngLat) {
     if (!lngLat) {
       coordText = '';
@@ -735,6 +745,17 @@
     fixedPointsStore.load().catch((err) => {
       toasts.error(`Could not load fixed points: ${err.message}`);
     });
+    // Route overlays: uploaded GPX/KML/GeoJSON lines, persisted server-side
+    // and shared across devices (same model as fixed points).
+    mapRoutesLayer = mountMapRoutesLayer(
+      map,
+      () => mapRoutesStore.routes,
+      (id) => layerToggles.routeVisibility[id] !== false,
+    );
+    mapRoutesLayer.refresh();
+    mapRoutesStore.load().catch((err) => {
+      toasts.error(`Could not load routes: ${err.message}`);
+    });
     myPositionLayer = mountMyPositionLayer(map, () => dataStore.myPosition, {
       onMarkerEnter: () => {
         if (activePopup) return;
@@ -761,6 +782,7 @@
     windBarbsLayer.setVisible(layerToggles.weather);
     myPositionLayer.setVisible(layerToggles.myPosition);
     fixedPointsLayer.setVisible(layerToggles.fixedPoints);
+    mapRoutesLayer.setVisible(layerToggles.routes);
     // Fronts layer disabled for now.
     // frontsLayer.setVisible(layerToggles.fronts);
     const initialPred = layerToggles.directRxOnly
@@ -947,6 +969,15 @@
     fixedPointsLayer?.refresh();
   });
 
+  // Routes change when the operator uploads/renames/recolors/deletes them
+  // (store reassigns the array) or toggles a per-route checkbox (the
+  // routeVisibility map mutates). Stringify the map so every id is a dep.
+  $effect(() => {
+    const _routes = mapRoutesStore.routes;
+    const _vis = JSON.stringify(layerToggles.routeVisibility);
+    mapRoutesLayer?.refresh();
+  });
+
   // Persist the whole toggle set on any change. JSON.stringify reads every
   // property, so Svelte tracks each one as a dependency.
   $effect(() => {
@@ -1027,6 +1058,10 @@
   $effect(() => {
     const v = layerToggles.fixedPoints;
     fixedPointsLayer?.setVisible(v);
+  });
+  $effect(() => {
+    const v = layerToggles.routes;
+    mapRoutesLayer?.setVisible(v);
   });
   // Surface fronts: toggle visibility, and run the slow manifest poll only while
   // the overlay is on (mirrors the radar manifest poll being gated on its
@@ -1263,6 +1298,7 @@
     hoverPathLayer?.destroy();
     myPositionLayer?.destroy();
     fixedPointsLayer?.destroy();
+    mapRoutesLayer?.destroy();
     radarLayer = null;
     frontsLayer = null;
     heatmapLayer = null;
@@ -1273,6 +1309,7 @@
     hoverPathLayer = null;
     myPositionLayer = null;
     fixedPointsLayer = null;
+    mapRoutesLayer = null;
     mapRef = null;
     // Drop the console debug handle so a context-lost/removed map isn't pinned
     // in the heap after a recovery remount or navigation away (graywolf#461).
@@ -1405,6 +1442,37 @@
         {/each}
       </select>
     </section>
+
+    <!-- Routes: operator-uploaded GPX/KML/GeoJSON overlay lines. Master
+         toggle plus one checkbox per route. Hidden entirely until at
+         least one route is uploaded (managed on the Maps settings page). -->
+    {#if mapRoutesStore.routes.length > 0}
+      <section class="layer-section">
+        <h3 class="layer-section-title">Routes</h3>
+        <div class="layer-toggles">
+          <label class="toggle-row">
+            <input
+              type="checkbox"
+              checked={layerToggles.routes}
+              onchange={(e) => (layerToggles.routes = e.currentTarget.checked)}
+            />
+            <span>Show routes</span>
+          </label>
+          {#each mapRoutesStore.routes as route (route.id)}
+            <label class="toggle-row">
+              <input
+                type="checkbox"
+                checked={layerToggles.routeVisibility[route.id] !== false}
+                disabled={!layerToggles.routes}
+                onchange={(e) => setRouteVisible(route.id, e.currentTarget.checked)}
+              />
+              <span class="route-swatch" style="background:{route.color}"></span>
+              <span>{route.name}</span>
+            </label>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     <!-- Weather: fronts + radar overlays and their controls. (The surface-obs
          layer toggle is "Weather Stations", grouped under APRS with Stations.) -->
@@ -1733,6 +1801,18 @@
     height: 16px;
     accent-color: var(--color-accent);
     cursor: pointer;
+  }
+  .toggle-row input[type='checkbox']:disabled {
+    cursor: default;
+  }
+  /* Small color chip identifying which line on the map a route toggle
+     controls; mirrors the route's line-color. */
+  .route-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex: 0 0 auto;
+    border: 1px solid var(--map-overlay-border);
   }
   .timerange-label {
     display: block;

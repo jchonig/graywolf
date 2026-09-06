@@ -71,6 +71,13 @@ func TestAuthGate_EveryRoute(t *testing.T) {
 		{http.MethodDelete, "/api/beacons/1", ""},
 		{http.MethodPost, "/api/beacons/1/send", ""},
 
+		// Map routes (uploaded GPX/KML/GeoJSON overlays)
+		{http.MethodGet, "/api/map-routes", ""},
+		{http.MethodPost, "/api/map-routes", `{}`},
+		{http.MethodGet, "/api/map-routes/1", ""},
+		{http.MethodPut, "/api/map-routes/1", `{}`},
+		{http.MethodDelete, "/api/map-routes/1", ""},
+
 		// PTT + TX timing
 		{http.MethodGet, "/api/ptt", ""},
 		{http.MethodPost, "/api/ptt", `{}`},

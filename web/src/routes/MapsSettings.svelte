@@ -1,6 +1,10 @@
 <script>
   import { onMount } from 'svelte';
   import { Box, Button, Input, Toggle, Radio, RadioGroup } from '@chrissnell/chonky-ui';
+  import ConfirmDialog from '../components/ConfirmDialog.svelte';
+  import { toasts } from '../lib/stores.js';
+  import { mapRoutesStore } from '../lib/map/map-routes-store.svelte.js';
+  import { parseRouteFile, simplifyRoute } from '../lib/map/route-import.js';
   import { mapsState, ISSUES_URL } from '../lib/settings/maps-store.svelte.js';
   import { mapState } from '../lib/map/map-store.svelte.js';
   import { RADAR_REGION_US, RADAR_REGION_WORLD } from '../lib/map/sources/radar-source.js';
@@ -22,10 +26,79 @@
   let validation = $derived(validateCallsign(callsignInput));
   let canSubmit = $derived(consented && validation.ok && !mapsState.registering);
 
+  // --- Route overlays -------------------------------------------------
+  // A short palette assigned to new routes by upload order so distinct
+  // routes get distinct lines without asking the operator to pick.
+  const ROUTE_PALETTE = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+  let routeUploading = $state(false);
+  let routeFileInput = $state(null); // bound <input type="file">
+  let routeDeleteTarget = $state(null); // { id, name } | null
+  let routeDeleteOpen = $state(false);
+
+  function nextRouteColor() {
+    return ROUTE_PALETTE[mapRoutesStore.routes.length % ROUTE_PALETTE.length];
+  }
+
+  async function onRouteFileChange(e) {
+    const file = e.currentTarget.files && e.currentTarget.files[0];
+    e.currentTarget.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    routeUploading = true;
+    try {
+      const text = await file.text();
+      const { name, geojson } = parseRouteFile(file.name, text);
+      const simplified = simplifyRoute(geojson);
+      await mapRoutesStore.add({ name, color: nextRouteColor(), geojson: simplified });
+      toasts.success(`Added route "${name}"`);
+    } catch (err) {
+      toasts.error(`Could not import route: ${err.message}`);
+    } finally {
+      routeUploading = false;
+    }
+  }
+
+  async function commitRouteName(route, value) {
+    const name = (value || '').trim();
+    if (!name || name === route.name) return;
+    try {
+      await mapRoutesStore.update(route.id, { name });
+    } catch (err) {
+      toasts.error(`Could not rename route: ${err.message}`);
+    }
+  }
+
+  async function commitRouteColor(route, value) {
+    if (!value || value === route.color) return;
+    try {
+      await mapRoutesStore.update(route.id, { color: value });
+    } catch (err) {
+      toasts.error(`Could not recolor route: ${err.message}`);
+    }
+  }
+
+  function askDeleteRoute(route) {
+    routeDeleteTarget = { id: route.id, name: route.name };
+    routeDeleteOpen = true;
+  }
+
+  async function confirmDeleteRoute() {
+    const target = routeDeleteTarget;
+    if (!target) return;
+    try {
+      await mapRoutesStore.remove(target.id);
+      toasts.success(`Deleted route "${target.name}"`);
+    } catch (err) {
+      toasts.error(`Could not delete route: ${err.message}`);
+    } finally {
+      routeDeleteTarget = null;
+    }
+  }
+
   onMount(() => {
     mapsState.fetchConfig();
     catalogStore.load();
     localBoundsStore.load();
+    mapRoutesStore.load().catch((err) => toasts.error(`Could not load routes: ${err.message}`));
     downloadsState.refresh().then(() => {
       if (
         [...downloadsState.items.values()].some(
@@ -386,6 +459,63 @@
   <RegionPicker bind:open={pickerOpen} />
 {/if}
 
+<Box title="Route overlays">
+  <p class="prose">
+    Upload a route to draw it on the live map as a reference line -- e.g. an
+    event course exported from Ride With GPS as a GPX track. Routes are stored
+    on this server and shared with every device. Toggle them on the map's
+    Layers panel under "Routes". GPX, KML, and GeoJSON files are accepted.
+  </p>
+
+  <input
+    type="file"
+    accept=".gpx,.kml,.geojson,.json,application/gpx+xml,application/vnd.google-earth.kml+xml,application/geo+json"
+    class="route-file-input"
+    bind:this={routeFileInput}
+    onchange={onRouteFileChange}
+  />
+  <Button class="maps-cta" disabled={routeUploading} onclick={() => routeFileInput?.click()}>
+    {routeUploading ? 'Importing...' : 'Upload route'}
+  </Button>
+
+  {#if mapRoutesStore.routes.length === 0}
+    <p class="form-hint">No routes uploaded yet.</p>
+  {:else}
+    <h3 class="prose-heading">Routes ({mapRoutesStore.routes.length})</h3>
+    <ul class="route-list">
+      {#each mapRoutesStore.routes as route (route.id)}
+        <li class="route-row">
+          <input
+            type="color"
+            class="route-color"
+            aria-label="Route line color"
+            value={route.color}
+            onchange={(e) => commitRouteColor(route, e.currentTarget.value)}
+          />
+          <input
+            class="route-name"
+            value={route.name}
+            aria-label="Route name"
+            onblur={(e) => commitRouteName(route, e.currentTarget.value)}
+          />
+          <span class="route-meta">{route.pointCount} pts</span>
+          <Button variant="danger" onclick={() => askDeleteRoute(route)}>Delete</Button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</Box>
+
+<ConfirmDialog
+  bind:open={routeDeleteOpen}
+  title="Delete route"
+  message={routeDeleteTarget
+    ? `Delete "${routeDeleteTarget.name}"? This removes it from the map on every device and cannot be undone.`
+    : ''}
+  confirmLabel="Delete"
+  onConfirm={confirmDeleteRoute}
+/>
+
 <style>
   @import '../lib/maps/styles.css';
 
@@ -395,5 +525,53 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
+  }
+
+  /* Route overlays card: hidden native file input (triggered by the
+     chonky Button), and a per-route row of color swatch + editable name
+     + point count + delete. */
+  .route-file-input {
+    display: none;
+  }
+  .route-list {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .route-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+  }
+  .route-color {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .route-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 4px 8px;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+  }
+  .route-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex: 0 0 auto;
   }
 </style>

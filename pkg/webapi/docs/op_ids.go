@@ -442,3 +442,14 @@ const (
 	OpUpdateFixedPoint = "updateFixedPoint"
 	OpDeleteFixedPoint = "deleteFixedPoint"
 )
+
+// Map Routes resource — /api/map-routes/* — operator-uploaded route
+// lines (GPX/KML/GeoJSON) drawn on the live map, shared across devices.
+// Wire shape: pkg/webapi/map_routes.go.
+const (
+	OpListMapRoutes  = "listMapRoutes"
+	OpCreateMapRoute = "createMapRoute"
+	OpGetMapRoute    = "getMapRoute"
+	OpUpdateMapRoute = "updateMapRoute"
+	OpDeleteMapRoute = "deleteMapRoute"
+)

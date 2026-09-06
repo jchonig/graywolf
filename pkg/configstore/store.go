@@ -155,6 +155,7 @@ func (s *Store) Migrate() error {
 		&IGateRfFilter{},
 		&Beacon{},
 		&FixedPoint{},
+		&MapRoute{},
 		&PacketFilter{},
 		&GPSConfig{},
 		&SmartBeaconConfig{},
@@ -1386,6 +1387,35 @@ func (s *Store) UpdateFixedPoint(ctx context.Context, fp *FixedPoint) error {
 
 func (s *Store) DeleteFixedPoint(ctx context.Context, id uint32) error {
 	return s.db.WithContext(ctx).Delete(&FixedPoint{}, id).Error
+}
+
+// ---------------------------------------------------------------------------
+// MapRoute
+// ---------------------------------------------------------------------------
+
+func (s *Store) ListMapRoutes(ctx context.Context) ([]MapRoute, error) {
+	var out []MapRoute
+	return out, s.db.WithContext(ctx).Order("id").Find(&out).Error
+}
+
+func (s *Store) GetMapRoute(ctx context.Context, id uint32) (*MapRoute, error) {
+	var mr MapRoute
+	if err := s.db.WithContext(ctx).First(&mr, id).Error; err != nil {
+		return nil, err
+	}
+	return &mr, nil
+}
+
+func (s *Store) CreateMapRoute(ctx context.Context, mr *MapRoute) error {
+	return s.db.WithContext(ctx).Create(mr).Error
+}
+
+func (s *Store) UpdateMapRoute(ctx context.Context, mr *MapRoute) error {
+	return s.db.WithContext(ctx).Save(mr).Error
+}
+
+func (s *Store) DeleteMapRoute(ctx context.Context, id uint32) error {
+	return s.db.WithContext(ctx).Delete(&MapRoute{}, id).Error
 }
 
 // ---------------------------------------------------------------------------
