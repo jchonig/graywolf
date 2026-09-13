@@ -4,7 +4,9 @@
 // store that uses them.
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-export const DEFAULT_ROUTE_COLOR = '#e11d48';
+// Chartreuse -- first entry of MapsSettings.svelte's ROUTE_PALETTE, picked
+// to avoid the basemap's road colors and the APRS trail palette's hues.
+export const DEFAULT_ROUTE_COLOR = '#7ca824';
 
 function isLineGeoJSON(gj) {
   return (

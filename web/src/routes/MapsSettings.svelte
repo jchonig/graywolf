@@ -29,7 +29,12 @@
   // --- Route overlays -------------------------------------------------
   // A short palette assigned to new routes by upload order so distinct
   // routes get distinct lines without asking the operator to pick.
-  const ROUTE_PALETTE = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+  // Chosen to sit in the hue gaps between the Americana basemap's road
+  // colors (red ~0deg for motorway/trunk, gold ~48deg for primary..minor)
+  // and the APRS trail palette's 7 hues (trails.js) -- every entry here is
+  // >=25deg from the nearest road or trail hue, versus the old palette
+  // which mirrored the trail hues almost exactly.
+  const ROUTE_PALETTE = ['#7ca824', '#209760', '#4747d1', '#b937be'];
   let routeUploading = $state(false);
   let routeFileInput = $state(null); // bound <input type="file">
   let routeDeleteTarget = $state(null); // { id, name } | null

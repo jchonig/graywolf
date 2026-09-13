@@ -46,7 +46,7 @@ export function mountMapRoutesLayer(map, getRoutes, isRouteVisible = () => true)
         features.push({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: coords },
-          properties: { id: route.id, color: route.color || '#e11d48' },
+          properties: { id: route.id, color: route.color || '#7ca824' },
         });
       }
     }

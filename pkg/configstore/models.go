@@ -726,7 +726,7 @@ type FixedPoint struct {
 type MapRoute struct {
 	ID         uint32    `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name       string    `gorm:"not null" json:"name"`
-	Color      string    `gorm:"not null;default:'#e11d48'" json:"color"`
+	Color      string    `gorm:"not null;default:'#7ca824'" json:"color"`
 	GeoJSON    string    `gorm:"not null" json:"-"` // compact GeoJSON FeatureCollection text
 	PointCount uint32    `gorm:"not null;default:0" json:"point_count"`
 	CreatedAt  time.Time `json:"-"`

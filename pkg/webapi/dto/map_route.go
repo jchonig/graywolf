@@ -12,8 +12,10 @@ import (
 )
 
 // DefaultRouteColor is applied when a MapRouteRequest omits color. It
-// mirrors the configstore column default.
-const DefaultRouteColor = "#e11d48"
+// mirrors the configstore column default. Chosen to avoid the Americana
+// basemap's road colors and the APRS trail palette's hues (see
+// MapsSettings.svelte's ROUTE_PALETTE).
+const DefaultRouteColor = "#7ca824"
 
 // Route upload sanity caps. MaxRouteGeoJSONBytes bounds the serialized
 // GeoJSON document; MaxRouteVertices bounds the total number of line
