@@ -124,3 +124,27 @@ test('simplifyRoute thins a dense collinear route', () => {
   assert.deepEqual(out.features[0].geometry.coordinates[0], coords[0]);
   assert.deepEqual(out.features[0].geometry.coordinates.at(-1), coords.at(-1));
 });
+
+test('simplifyRoute keeps a low-height long-base point that pure distance would drop', () => {
+  // B sits only 0.00001deg off the A-C chord (well under the 0.001 tolerance
+  // a distance-based simplifier would use), but A-B-C spans a long enough
+  // base that the triangle's area is significant -- Visvalingam-Whyatt
+  // weighs both, not perpendicular distance alone.
+  const coords = [
+    [-76, 42],
+    [-75, 42.00001],
+    [-74, 42],
+  ];
+  for (let i = 1; i <= 5000; i++) coords.push([-74 + i * 0.0001, 42]);
+  coords.push([coords.at(-1)[0], 42.01]); // real corner so the tail survives
+
+  const dense = {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }],
+  };
+  const kept = simplifyRoute(dense, 0.001).features[0].geometry.coordinates;
+  assert.ok(
+    kept.some((p) => p[0] === -75 && p[1] === 42.00001),
+    'expected the long-base point to survive on area, not just perpendicular distance',
+  );
+});

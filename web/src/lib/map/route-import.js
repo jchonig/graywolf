@@ -8,6 +8,12 @@
 // the layer, simplifier, and server validation only deal with one
 // geometry type. Waypoints, elevation, timestamps, and styling are
 // dropped -- the map overlay only needs the line.
+//
+// Dense tracks are thinned with Visvalingam-Whyatt (see simplifyRoute
+// below), not Ramer-Douglas-Peucker -- suggested by @pflarue on the
+// original PR as a better match for how a simplified track "should" look,
+// since it drops points by the area they contribute rather than pure
+// perpendicular distance.
 
 import { gpx, kml } from '@tmcw/togeojson';
 
@@ -54,12 +60,16 @@ export function parseRouteFile(filename, text, DomParser = globalThis.DOMParser)
   return { name, geojson: { type: 'FeatureCollection', features } };
 }
 
-// simplifyRoute runs Ramer-Douglas-Peucker over every LineString in the
+// simplifyRoute runs Visvalingam-Whyatt over every LineString in the
 // FeatureCollection when the total vertex count is large, to keep the
 // stored/rendered payload reasonable. Sparse routes are returned as-is.
+// `toleranceDeg` keeps the same linear-distance units the caller picks
+// (e.g. the settings-card slider); it's squared internally to compare
+// against triangle *area*, per the usual VW convention.
 export function simplifyRoute(geojson, toleranceDeg = 0.00005) {
   if (!geojson || !Array.isArray(geojson.features)) return geojson;
   if (countVerticesIn(geojson.features) <= SIMPLIFY_ABOVE) return geojson;
+  const areaThreshold = toleranceDeg * toleranceDeg;
   return {
     type: 'FeatureCollection',
     features: geojson.features.map((f) => ({
@@ -67,7 +77,7 @@ export function simplifyRoute(geojson, toleranceDeg = 0.00005) {
       properties: f.properties || {},
       geometry: {
         type: 'LineString',
-        coordinates: rdp(f.geometry.coordinates, toleranceDeg),
+        coordinates: visvalingamWhyatt(f.geometry.coordinates, areaThreshold),
       },
     })),
   };
@@ -154,48 +164,135 @@ function stripExt(filename) {
   return base.replace(/\.[^.]+$/, '');
 }
 
-// Ramer-Douglas-Peucker with planar (lon/lat) perpendicular distance --
-// good enough to thin a route line; the small distortion away from the
-// equator is irrelevant at simplification tolerances.
-function rdp(points, epsilon) {
-  if (!Array.isArray(points) || points.length < 3) return (points || []).slice();
-  const keep = new Uint8Array(points.length);
-  keep[0] = 1;
-  keep[points.length - 1] = 1;
-  const stack = [[0, points.length - 1]];
-  while (stack.length) {
-    const [start, end] = stack.pop();
-    let maxDist = 0;
-    let idx = -1;
-    for (let i = start + 1; i < end; i++) {
-      const d = perpDistance(points[i], points[start], points[end]);
-      if (d > maxDist) {
-        maxDist = d;
-        idx = i;
-      }
+// Visvalingam-Whyatt with planar (lon/lat) triangle area -- tends to match
+// human expectations of a simplified track better than Ramer-Douglas-Peucker
+// (which can leave visually-insignificant zigzags because it only looks at
+// perpendicular distance, not the area a point actually contributes). The
+// small distortion away from the equator is irrelevant at simplification
+// tolerances.
+//
+// Classic effective-area elimination: repeatedly drop the point whose
+// triangle (with its current neighbors) has the smallest area, carrying
+// forward the max area removed so far as each point's "effective area" (a
+// point removed early because it was locally flat can still be less
+// significant than one removed later, so effective area must be
+// non-decreasing). A point survives iff its effective area is >= the
+// threshold. Neighbor bookkeeping is a doubly linked list over indices; the
+// heap is lazy (stale entries are dropped on pop) so no decrease-key is
+// needed. O(n log n).
+function visvalingamWhyatt(points, areaThreshold) {
+  const n = Array.isArray(points) ? points.length : 0;
+  if (n < 3) return (points || []).slice();
+
+  const prev = new Int32Array(n);
+  const next = new Int32Array(n);
+  const area = new Float64Array(n).fill(Infinity);
+  for (let i = 0; i < n; i++) {
+    prev[i] = i - 1;
+    next[i] = i + 1;
+  }
+  next[n - 1] = -1;
+
+  const removed = new Uint8Array(n);
+  const heap = new MinHeap();
+  for (let i = 1; i < n - 1; i++) {
+    area[i] = triangleArea(points[i - 1], points[i], points[i + 1]);
+    heap.push(area[i], i);
+  }
+
+  let maxAreaSoFar = 0;
+  while (heap.size() > 0) {
+    const [a, i] = heap.pop();
+    // Skip stale entries -- superseded by a later push for the same index,
+    // or the index was already processed. A value check alone (a !==
+    // area[i]) isn't enough: runs of exactly-collinear points share area 0,
+    // so a stale zero-area entry can coincidentally match the current
+    // area[i] and slip through, reprocessing an already-removed node and
+    // growing the heap without bound.
+    if (removed[i] || a !== area[i]) continue;
+    removed[i] = 1;
+
+    const effective = a < maxAreaSoFar ? maxAreaSoFar : a;
+    maxAreaSoFar = effective;
+    area[i] = effective;
+
+    const p = prev[i];
+    const nx = next[i];
+    next[p] = nx;
+    prev[nx] = p;
+
+    if (p !== 0) {
+      area[p] = triangleArea(points[prev[p]], points[p], points[nx]);
+      heap.push(area[p], p);
     }
-    if (maxDist > epsilon && idx !== -1) {
-      keep[idx] = 1;
-      stack.push([start, idx], [idx, end]);
+    if (nx !== n - 1) {
+      area[nx] = triangleArea(points[p], points[nx], points[next[nx]]);
+      heap.push(area[nx], nx);
     }
   }
+
   const out = [];
-  for (let i = 0; i < points.length; i++) if (keep[i]) out.push(points[i]);
+  for (let i = 0; i < n; i++) if (area[i] >= areaThreshold) out.push(points[i]);
   return out;
 }
 
-function perpDistance(p, a, b) {
-  const x = p[0];
-  const y = p[1];
-  const x1 = a[0];
-  const y1 = a[1];
-  const x2 = b[0];
-  const y2 = b[1];
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  if (dx === 0 && dy === 0) return Math.hypot(x - x1, y - y1);
-  const t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
-  const cx = x1 + t * dx;
-  const cy = y1 + t * dy;
-  return Math.hypot(x - cx, y - cy);
+function triangleArea(a, b, c) {
+  return Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2;
+}
+
+// Lazy binary min-heap of (area, index) pairs. "Lazy" because updating a
+// point's area just pushes a new entry instead of hunting for and
+// decreasing the old one; visvalingamWhyatt discards a popped entry whose
+// area no longer matches the authoritative `area[i]`.
+class MinHeap {
+  constructor() {
+    this.areas = [];
+    this.indices = [];
+  }
+
+  size() {
+    return this.areas.length;
+  }
+
+  push(a, i) {
+    const areas = this.areas;
+    const indices = this.indices;
+    let pos = areas.length;
+    areas.push(a);
+    indices.push(i);
+    while (pos > 0) {
+      const parent = (pos - 1) >> 1;
+      if (areas[parent] <= areas[pos]) break;
+      [areas[parent], areas[pos]] = [areas[pos], areas[parent]];
+      [indices[parent], indices[pos]] = [indices[pos], indices[parent]];
+      pos = parent;
+    }
+  }
+
+  pop() {
+    const areas = this.areas;
+    const indices = this.indices;
+    const topArea = areas[0];
+    const topIndex = indices[0];
+    const lastArea = areas.pop();
+    const lastIndex = indices.pop();
+    if (areas.length > 0) {
+      areas[0] = lastArea;
+      indices[0] = lastIndex;
+      let pos = 0;
+      const len = areas.length;
+      for (;;) {
+        const left = 2 * pos + 1;
+        const right = left + 1;
+        let smallest = pos;
+        if (left < len && areas[left] < areas[smallest]) smallest = left;
+        if (right < len && areas[right] < areas[smallest]) smallest = right;
+        if (smallest === pos) break;
+        [areas[smallest], areas[pos]] = [areas[pos], areas[smallest]];
+        [indices[smallest], indices[pos]] = [indices[pos], indices[smallest]];
+        pos = smallest;
+      }
+    }
+    return [topArea, topIndex];
+  }
 }
